@@ -1,4 +1,3 @@
-
 use std::io::BufRead;
 
 use log::*;
@@ -7,7 +6,11 @@ use quick_xml::Reader;
 use serde_json::{Map, Value};
 
 /// copied from <https://github.com/rtyler/xmltojson/blob/main/src/lib.rs>
-pub (crate) fn read<R: BufRead> (mut reader: &mut Reader<R>, depth: u64) -> Value {
+pub(crate) fn read<R: BufRead>(
+    mut reader: &mut Reader<R>,
+    depth: u64,
+    with_text_attr: bool,
+) -> Value {
     let mut buf = Vec::new();
     let mut values = Vec::new();
     let mut node = Map::new();
@@ -17,7 +20,7 @@ pub (crate) fn read<R: BufRead> (mut reader: &mut Reader<R>, depth: u64) -> Valu
         match reader.read_event(&mut buf) {
             Ok(Event::Start(ref e)) => {
                 if let Ok(name) = String::from_utf8(e.name().to_vec()) {
-                    let mut child = read(&mut reader, depth + 1);
+                    let mut child = read(&mut reader, depth + 1, with_text_attr);
                     let mut attrs = Map::new();
                     debug!("{} children: {:?}", name, child);
 
@@ -49,7 +52,7 @@ pub (crate) fn read<R: BufRead> (mut reader: &mut Reader<R>, depth: u64) -> Valu
                      * nodes with attributes need to be handled special
                      */
                     if !attrs.is_empty() {
-                        if child.is_string() {
+                        if child.is_string() && with_text_attr {
                             attrs.insert("#text".to_string(), child);
                         }
 
@@ -107,7 +110,7 @@ pub (crate) fn read<R: BufRead> (mut reader: &mut Reader<R>, depth: u64) -> Valu
             index += 1;
         }
 
-        if has_text {
+        if has_text && with_text_attr {
             node.insert("#text".to_string(), values.remove(index));
         }
         debug!("returning node instead: {:?}", node);
